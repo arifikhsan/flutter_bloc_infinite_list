@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:rxdart/rxdart.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
@@ -20,16 +21,16 @@ class PostBloc extends Bloc<PostEvent, PostState> {
   @override
   PostState get initialState => PostUninitialized();
 
-  // @override
-  // Stream<Transition<PostEvent, PostState>> transformEvents(
-  //   Stream<PostEvent> events,
-  //   TransitionFunction<PostEvent, PostState> transitionFn,
-  // ) {
-  //   return super.transformEvents(
-  //     events.debounceTime(const Duration(milliseconds: 500)),
-  //     transitionFn,
-  //   );
-  // }
+  @override
+  Stream<Transition<PostEvent, PostState>> transformEvents(
+    Stream<PostEvent> events,
+    TransitionFunction<PostEvent, PostState> transitionFn,
+  ) {
+    return super.transformEvents(
+      events.debounceTime(const Duration(milliseconds: 500)),
+      transitionFn,
+    );
+  }
 
   @override
   Stream<PostState> mapEventToState(
@@ -42,6 +43,15 @@ class PostBloc extends Bloc<PostEvent, PostState> {
           final posts = await _fetchPosts(0, 20);
           yield PostLoaded(posts: posts, hasReachedMax: false);
           return;
+        }
+        if (currentState is PostLoaded) {
+          final posts = await _fetchPosts(currentState.posts.length, 20);
+          yield posts.isEmpty
+              ? currentState.copyWith(hasReachedMax: true)
+              : PostLoaded(
+                  posts: currentState.posts + posts,
+                  hasReachedMax: false,
+                );
         }
       } catch (_) {
         yield PostError();
